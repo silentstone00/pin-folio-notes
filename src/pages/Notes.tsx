@@ -147,14 +147,14 @@ const Notes = () => {
   };
 
   useEffect(() => {
-    if (currentNote) {
+    if (currentNote && user) {
       const timer = setTimeout(() => {
         saveNote();
       }, 1000);
 
       return () => clearTimeout(timer);
     }
-  }, [content]);
+  }, [content, currentNote, user]);
 
   if (!user) return null;
 
