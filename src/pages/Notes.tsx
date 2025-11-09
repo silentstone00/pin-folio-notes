@@ -71,13 +71,20 @@ const Notes = () => {
   const saveNote = async () => {
     if (!currentNote) return;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("notes")
-      .update({ content })
-      .eq("id", currentNote.id);
+      .update({ content, updated_at: new Date().toISOString() })
+      .eq("id", currentNote.id)
+      .select()
+      .single();
 
     if (error) {
       toast.error("Failed to save note");
+      return;
+    }
+
+    if (data) {
+      setNotes((prev) => prev.map((n) => (n.id === data.id ? { ...n, ...data } : n)));
     }
   };
 
