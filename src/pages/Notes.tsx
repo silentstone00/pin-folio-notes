@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { Plus, Share2 } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import ShareDialog from "@/components/ShareDialog";
@@ -157,17 +159,37 @@ const Notes = () => {
           onShare={() => setShareDialogOpen(true)}
         />
 
-        <main className="flex-1 flex flex-col">
-          <header className="h-12 flex items-center border-b border-border px-4">
+        <main className="flex-1 flex flex-col min-w-0">
+          <header className="h-12 flex items-center justify-between border-b border-border px-4 gap-2">
             <SidebarTrigger />
+            <div className="flex gap-2 md:hidden">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setShareDialogOpen(true)}
+                className="h-8 w-8"
+                title="Share notes"
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={createNewNote}
+                className="h-8 w-8"
+                title="New note"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </header>
 
-          <div className="flex-1 flex items-center justify-center p-8">
+          <div className="flex-1 flex items-center justify-center p-4 md:p-8">
             <Textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Start typing..."
-              className="w-full max-w-3xl h-[80vh] bg-transparent border-none focus-visible:ring-0 text-lg resize-none"
+              className="w-full max-w-3xl h-[calc(100vh-8rem)] md:h-[80vh] bg-transparent border-none focus-visible:ring-0 text-base md:text-lg resize-none"
             />
           </div>
         </main>
