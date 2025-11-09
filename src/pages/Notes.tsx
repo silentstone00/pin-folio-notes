@@ -1,52 +1,48 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, LogOut, Share2 } from "lucide-react";
-import NotesList from "@/components/NotesList";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
 import ShareDialog from "@/components/ShareDialog";
 
+// Generate or get user ID from localStorage
+const getUserId = () => {
+  let userId = localStorage.getItem("notes_user_id");
+  if (!userId) {
+    userId = crypto.randomUUID();
+    localStorage.setItem("notes_user_id", userId);
+  }
+  return userId;
+};
+
 const Notes = () => {
-  const [user, setUser] = useState<any>(null);
+  const [userId] = useState(getUserId());
   const [currentNote, setCurrentNote] = useState<any>(null);
   const [content, setContent] = useState("");
   const [notes, setNotes] = useState<any[]>([]);
   const [userPin, setUserPin] = useState("");
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate("/auth");
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
-        navigate("/auth");
-      } else {
-        loadNotes(session.user.id);
-        loadUserPin(session.user.id);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    loadNotes(userId);
+    loadUserPin(userId);
+  }, [userId]);
 
   const loadUserPin = async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
       .select("pin")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
     
     if (data) {
       setUserPin(data.pin);
+    } else {
+      // Create a new profile with PIN if it doesn't exist
+      const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+      await supabase.from("profiles").insert({ user_id: userId, pin: newPin });
+      setUserPin(newPin);
     }
   };
 
@@ -71,7 +67,7 @@ const Notes = () => {
   };
 
   const saveNote = async () => {
-    if (!user || !currentNote) return;
+    if (!currentNote) return;
 
     const { error } = await supabase
       .from("notes")
@@ -84,12 +80,10 @@ const Notes = () => {
   };
 
   const createNewNote = async () => {
-    if (!user) return;
-
     const { data, error } = await supabase
       .from("notes")
       .insert({
-        user_id: user.id,
+        user_id: userId,
         content: "",
       })
       .select()
@@ -141,79 +135,50 @@ const Notes = () => {
     toast.success("Note deleted");
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth");
-  };
-
   useEffect(() => {
-    if (currentNote && user) {
+    if (currentNote) {
       const timer = setTimeout(() => {
         saveNote();
       }, 1000);
 
       return () => clearTimeout(timer);
     }
-  }, [content, currentNote, user]);
-
-  if (!user) return null;
+  }, [content, currentNote]);
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <div className="w-64 border-r border-border flex flex-col">
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-sm font-medium text-foreground">Notes</h2>
-          <div className="flex gap-2">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setShareDialogOpen(true)}
-              className="h-8 w-8"
-            >
-              <Share2 className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={createNewNote}
-              className="h-8 w-8"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={handleLogout}
-              className="h-8 w-8"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        <NotesList
+    <SidebarProvider defaultOpen={true}>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar
           notes={notes}
           currentNote={currentNote}
           onSelectNote={selectNote}
           onDeleteNote={deleteNote}
+          onCreateNote={createNewNote}
+          onShare={() => setShareDialogOpen(true)}
+        />
+
+        <main className="flex-1 flex flex-col">
+          <header className="h-12 flex items-center border-b border-border px-4">
+            <SidebarTrigger />
+          </header>
+
+          <div className="flex-1 flex items-center justify-center p-8">
+            <Textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Start typing..."
+              className="w-full max-w-3xl h-[80vh] bg-transparent border-none focus-visible:ring-0 text-lg resize-none"
+            />
+          </div>
+        </main>
+
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          pin={userPin}
         />
       </div>
-
-      <div className="flex-1 flex items-center justify-center p-8">
-        <Textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Start typing..."
-          className="w-full max-w-3xl h-[80vh] bg-transparent border-none focus-visible:ring-0 text-lg resize-none"
-        />
-      </div>
-
-      <ShareDialog
-        open={shareDialogOpen}
-        onOpenChange={setShareDialogOpen}
-        pin={userPin}
-      />
-    </div>
+    </SidebarProvider>
   );
 };
 
